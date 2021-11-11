@@ -1,0 +1,165 @@
+#!/bin/bash
+###############################################################################
+# A small script to get the name/provisional designation or asteroid number of
+# a small solar system body. Identification is based on NASA JPL/Horizons
+# index file, DASTCOM.IDX.
+# If it is not present, it will be downloaded from
+# ftp://ssd.jpl.nasa.gov/pub/xfr/DASTCOM.IDX, also, if it is older than 30 days,
+# the index file will be re-downloded.
+#
+# The script accepts integer asteroid number(s) as argument, asteroid name(s)
+# or NAIFID(s) e.g.:
+# astname 64
+# or:
+# astname Angelina
+# or:
+# astname 2000016
+# Use double quotes if special characters are present in the
+# astreoid name, e.g.:
+# astname "Prokof'ev"
+# Use double quotes also, when searching for provisional designation e.g.:
+# astname "1976 YG"
+# The search is not case sensitive.
+# Use astname --help to print this information.
+#
+# R. Szakáts, Konkoly Observatory, ELKH, 2021
+###############################################################################
+
+function getname()
+{
+  data=$1
+  num=$(echo $data | awk '{print $1}')
+  name=$(echo $data | awk -F ',' '{print $1}' | sed s/$num//g)
+  echo "IAU Number: $num"
+  echo "Name or Designation: $name"
+  echo "NAIFID: $(echo $data | awk -F ',' '{print $2}')"
+  altdes=""
+  for i in `seq 3 15`;do
+    des=$(echo $data | awk -F ',' -v col="$i" '{print $col}')
+    if [ ! -z "$des" ];then
+      altdes=$altdes", "$des
+    else
+      break
+    fi
+  done
+
+  altdes=$(echo $altdes | sed s/,//)
+  if [ ! -z "$altdes" ];then
+    echo "Alternative designations: $altdes"
+  fi
+}
+
+###############################################################################
+function ifhelp()
+{
+  if [ "$1" == "--help" ];then
+    printf "Usage: The script accepts integer asteroid number(s) as argument(s),
+    asteroid name(s) or NAIFID(s), e.g.:
+    astname 64 56
+    or:
+    astname Angelina
+    or:
+    astname 2000016
+    Use double quotes, if special characters are present in the
+    astreoid name, e.g.:
+    astname "\"Prokof\'ev\""
+    Use double quotes also, when searching for provisional designation e.g.:
+    astname \"1976 YG\"\n
+    The search is not case sensitive.\n"
+    exit 0
+  fi
+}
+###############################################################################
+function getindexfile()
+{
+  file=$1
+  if [ ! -f "${file}" ];then
+    echo "Index file is not present. Downloading DASTCOM.IDX..."
+    wget -nv ftp://ssd.jpl.nasa.gov/pub/xfr/DASTCOM.IDX -O ${file}
+  else
+    age=$(echo $(($(date +%s) - $(date +%s -r "${file}"))))
+    if [ "$age" -gt 2592000 ];then
+      echo "Index file is older than 30 days: $(echo $age | \
+      awk '{printf "%4.2f\n", $1/60/60/24}') days"
+      echo "Downloading index file DASTCOM.IDX..."
+      mkdir -p /tmp/${USER}
+      wget -nv ftp://ssd.jpl.nasa.gov/pub/xfr/DASTCOM.IDX -O \
+      /tmp/${USER}/"datafile"
+      oldsize=$(wc -c ${file} | awk '{print $1}')
+      size=$(wc -c /tmp/${USER}/"datafile" | awk '{print $1}')
+      if [ "$size" -ge "$oldsize" ];then
+        mv /tmp/${USER}/"datafile" ${file}
+      else
+        echo "Error, index file size is too small: $size bytes. Using old file."
+        # exit 1
+      fi
+    fi
+  fi
+}
+
+###############################################################################
+function check_dep()
+{
+  if [ -z "$(which $1)" ];then
+    echo "Dependency $1 not found! Exiting!"
+    exit 1
+  fi
+}
+###############################################################################
+sep="=========================================================================="
+for i in "bash" "wget" "awk" "grep";do
+  check_dep $i
+done
+
+wdir="${HOME}/.cache/"
+datafile="DASTCOM.IDX"
+test -d $wdir ||  mkdir $wdir
+
+if [[ -z "$*" ]]; then
+  echo "No asteroid name or number specified. Try --help. Exiting."
+  exit 1
+fi
+for name in "$@" ;do
+  if [[ $name =~ ^[+-]?[0-9]+\. ]]; then
+    # If input is float
+    echo "Error, input is a float! Exiting."
+    exit 1
+  elif [[ $name =~ ^[+-]?[0-9]+$ ]]; then
+    # If the input integer
+    getindexfile ${wdir}${datafile}
+    if (( $name > 2000000 )) && (( $name < 50000000 ));then
+      # If input is NAIFID
+      data=$(grep ",$name," ${wdir}${datafile})
+    else
+      data=$(awk '{ sub(/^[ \t]+/, ""); print }' ${wdir}${datafile} | \
+      awk -v name="$name" '$1==name{print $0}')
+    fi
+  elif [[ $name =~ ^[+-]?[0-9]+\.$ ]]; then
+    ifhelp $name
+    getindexfile ${wdir}${datafile}
+    data=$(grep -w -i "$name" ${wdir}${datafile})
+  else
+    # If input is string
+    ifhelp $name
+    getindexfile ${wdir}${datafile}
+    data=$(grep -w -i "$name" ${wdir}${datafile})
+  fi
+  echo $sep
+
+  if [ ! -z "$data" ];then
+    if [ "$(printf "$data" | wc -l)" -gt 1 ];then
+      echo "Warning! Multiple matches!"
+      while IFS= read -r line
+        do
+          getname "$line"
+          echo $sep
+      done < <(printf '%s\n' "$data")
+    else
+      getname "$data"
+    fi
+  else
+    echo "No match!"
+  fi
+done
+echo $sep
+exit 0
