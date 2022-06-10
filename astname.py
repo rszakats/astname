@@ -26,6 +26,7 @@ Use python3 astname.py --help to print this information.
 
 @author: R. Szakáts, Konkoly Observatory, ELKH, 2021
 Created on Wed Nov 10 09:23:47 2021
+e
 """
 
 import os
