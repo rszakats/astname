@@ -275,16 +275,16 @@ def main():
                     if isinstance(targ, int):
                         if int(targ) > 2000000 and int(targ) < 50000000:
                             result = process_naifid(targ, infile)
-                            if result == False:
+                            if result != True:
                                 nomatch(targ)
                         else:
                             result = process_number(targ, infile)
-                            if result == False:
+                            if result != True:
                                 nomatch(targ)
                 except ValueError:
                     if isinstance(targ, str):
                         result = process_name(targ, infile)
-                        if result == False:
+                        if result != True:
                             nomatch(targ)
 
 
