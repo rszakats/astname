@@ -26,17 +26,16 @@ Use python3 astname.py --help to print this information.
 
 @author: R. Szakáts, Konkoly Observatory, ELKH, 2021
 Created on Wed Nov 10 09:23:47 2021
-e
 """
 
-import os
-import sys
 import getpass
-import re
-import time
+import os
 import platform
-import urllib.request
+import re
 import shutil
+import sys
+import time
+import urllib.request
 
 
 def get_indexfile(url, path):
