@@ -131,25 +131,29 @@ def format_output(t, line):
         A formatted output.
 
     """
-    des = str(line.split(',')[0]).split()
-    if len(des) > 2:
-        des = des[1] + " " + des[2]
-    else:
-        des = des[1]
-    alt = ""
-    for i in range(2, 8):
-        try:
-            alt += str(line.split(',')[i])+", "
-        except IndexError:
-            alt = alt
-    alt = alt.replace(", ,", "")
-    return (f"Object found for {t}!\n"
-            f"---------------------------\n"
-            f"Number: {str(line.split(',')[0]).split()[0]}\n"
-            f"Name/Designation: {des}\n"
-            f"NAIFID: {str(line).split(',')[1]}\n"
-            f"Alternative designations: {alt}\n"
-            f"---------------------------\n")
+    for lin in line:
+        des = str(lin.split(',')[0]).split()
+        if len(des) > 2:
+            des = des[1] + " " + des[2]
+        else:
+            des = des[1]
+        alt = ""
+        for i in range(2, 8):
+            try:
+                alt += str(lin.split(',')[i])+", "
+            except IndexError:
+                alt = alt
+        alt = alt.replace(", ,", "")
+        alt = alt.rstrip(" ,\n")
+        print(  f"Object found for {t}!\n"
+                f"---------------------------\n"
+                f"Number: {str(lin.split(',')[0]).split()[0]}\n"
+                f"Name/Designation: {des}\n"
+                f"NAIFID: {str(lin).split(',')[1]}\n"
+                f"Alternative designations: {alt}\n"
+                f"---------------------------\n")
+    if len(line) > 0:
+        return True
 
 
 def process_number(t, infile):
@@ -173,11 +177,11 @@ def process_number(t, infile):
         for line in file:
             if int(t) >= 50000000:
                 if re.search(str(str(t)+" "), line):
-                    return (format_output(t, line.strip()))
+                    return (format_output(t, [str(line)]))
 
             else:
                 if re.search(str(" "+str(t)+" "+"[0-9A-Za-z]"), line):
-                    return (format_output(t, line.strip()))
+                    return (format_output(t, [str(line)]))
 
 
 def process_name(t, infile):
@@ -198,11 +202,12 @@ def process_name(t, infile):
 
     """
     with open(infile, "r") as file:
+        lines = []
         for line in file:
-            if re.search(" "+str(t)+" ", line, re.IGNORECASE):
-                return (format_output(t, line.strip()))
-            elif re.search(","+str(t)+",", line, re.IGNORECASE):
-                return (format_output(t, line.strip()))
+            if str(t).lower() in line.lower():
+                lines.append(str(line))
+        if len(lines) > 0:
+            return (format_output(t, lines))
 
 
 def process_naifid(t, infile):
@@ -225,7 +230,7 @@ def process_naifid(t, infile):
     with open(infile, "r") as file:
         for line in file:
             if re.search(","+str(t)+",", line):
-                return (format_output(t, line.strip()))
+                return (format_output(t, [str(line)]))
 
 
 def main():
@@ -269,23 +274,17 @@ def main():
                     if isinstance(targ, int):
                         if int(targ) > 2000000 and int(targ) < 50000000:
                             result = process_naifid(targ, infile)
-                            if not result:
+                            if result != True:
                                 nomatch(targ)
-                            else:
-                                print(result)
                         else:
                             result = process_number(targ, infile)
-                            if not result:
+                            if result != True:
                                 nomatch(targ)
-                            else:
-                                print(result)
                 except ValueError:
                     if isinstance(targ, str):
                         result = process_name(targ, infile)
-                        if not result:
+                        if result != True:
                             nomatch(targ)
-                        else:
-                            print(result)
 
 
 if __name__ == "__main__":
